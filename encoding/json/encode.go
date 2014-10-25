@@ -137,6 +137,19 @@ func Marshal(v interface{}) ([]byte, error) {
 	return e.Bytes(), nil
 }
 
+type Options struct {
+	Naming NamingStyle
+}
+
+func MarshalOptions(v interface{}, options *Options) ([]byte, error) {
+	e := &encodeState{options: options}
+	err := e.marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	return e.Bytes(), nil
+}
+
 // MarshalIndent is like Marshal but applies Indent to format the output.
 func MarshalIndent(v interface{}, prefix, indent string) ([]byte, error) {
 	b, err := Marshal(v)
@@ -238,7 +251,8 @@ var hex = "0123456789abcdef"
 
 // An encodeState encodes JSON into a bytes.Buffer.
 type encodeState struct {
-	bytes.Buffer // accumulated output
+	options      *Options // encoding options
+	bytes.Buffer          // accumulated output
 	scratch      [64]byte
 }
 
@@ -577,7 +591,13 @@ func (se *structEncoder) encode(e *encodeState, v reflect.Value, quoted bool) {
 		} else {
 			e.WriteByte(',')
 		}
-		e.string(f.name)
+
+		if e.options != nil && e.options.Naming != GoNaming {
+			e.string(changeFieldNaming(f.name, e.options.Naming))
+		} else {
+			e.string(f.name)
+		}
+
 		e.WriteByte(':')
 		se.fieldEncs[i](e, fv, f.quoted)
 	}
